@@ -1,5 +1,5 @@
 from flask import Flask, request, url_for, jsonify
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy, BaseQuery
 from flask_migrate import Migrate
 
 app = Flask(__name__)
@@ -10,11 +10,30 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 
+class QueryWithSoftDelete(BaseQuery):
+    def __new__(cls, *args, **kwargs):
+        obj = super(QueryWithSoftDelete, cls).__new__(cls)
+        with_deleted = kwargs.pop('_with_deleted', False)
+        if len(args) > 0:
+            super(QueryWithSoftDelete, obj).__init__(*args, **kwargs)
+            return obj.filter_by(deleted=False) if not with_deleted else obj
+        return obj
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def with_deleted(self):
+        return self.__class__(db.class_mapper(self._mapper_zero().class_),
+                              session=db.session(), _with_deleted=True)
+
+
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
     deleted = db.Column(db.Boolean(), default=False)
+
+    query_class = QueryWithSoftDelete
 
     def to_dict(self):
         return {'id': self.id, 'name': self.name,
@@ -46,23 +65,19 @@ def new_user():
 
 @app.route('/users', methods=['GET'])
 def get_users():
-    users = User.query.filter_by(deleted=False)
+    users = User.query
     return jsonify({'users': [u.to_dict() for u in users]})
 
 
 @app.route('/users/<id>', methods=['GET'])
 def get_user(id):
     user = User.query.get_or_404(id)
-    if user.deleted:
-        abort(404)
     return jsonify(user.to_dict())
 
 
 @app.route('/users/<id>', methods=['DELETE'])
 def delete_user(id):
     user = User.query.get_or_404(id)
-    if user.deleted:
-        abort(404)
     user.deleted = True
     db.session.commit()
     return '', 204
@@ -71,8 +86,6 @@ def delete_user(id):
 @app.route('/users/<id>/messages', methods=['POST'])
 def new_message(id):
     user = User.query.get_or_404(id)
-    if user.deleted:
-        abort(404)
     message = Message(user_id=user.id, **request.get_json())
     db.session.add(message)
     db.session.commit()
