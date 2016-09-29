@@ -14,10 +14,12 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
+    deleted = db.Column(db.Boolean(), default=False)
 
     def to_dict(self):
         return {'id': self.id, 'name': self.name,
-                'url': url_for('get_user', id=self.id)}
+                'url': url_for('get_user', id=self.id)
+                if not self.deleted else None}
 
 
 class Message(db.Model):
@@ -30,7 +32,8 @@ class Message(db.Model):
     def to_dict(self):
         return {'id': self.id, 'message': self.message,
                 'url': url_for('get_message', id=self.id),
-                'user_url': url_for('get_user', id=self.user_id)}
+                'user_url': url_for('get_user', id=self.user_id)
+                if not self.user.deleted else None}
 
 
 @app.route('/users', methods=['POST'])
@@ -43,19 +46,33 @@ def new_user():
 
 @app.route('/users', methods=['GET'])
 def get_users():
-    users = User.query
+    users = User.query.filter_by(deleted=False)
     return jsonify({'users': [u.to_dict() for u in users]})
 
 
 @app.route('/users/<id>', methods=['GET'])
 def get_user(id):
     user = User.query.get_or_404(id)
+    if user.deleted:
+        abort(404)
     return jsonify(user.to_dict())
+
+
+@app.route('/users/<id>', methods=['DELETE'])
+def delete_user(id):
+    user = User.query.get_or_404(id)
+    if user.deleted:
+        abort(404)
+    user.deleted = True
+    db.session.commit()
+    return '', 204
 
 
 @app.route('/users/<id>/messages', methods=['POST'])
 def new_message(id):
     user = User.query.get_or_404(id)
+    if user.deleted:
+        abort(404)
     message = Message(user_id=user.id, **request.get_json())
     db.session.add(message)
     db.session.commit()
