@@ -26,6 +26,16 @@ class QueryWithSoftDelete(BaseQuery):
         return self.__class__(db.class_mapper(self._mapper_zero().class_),
                               session=db.session(), _with_deleted=True)
 
+    def _get(self, *args, **kwargs):
+        # this calls the original query.get function from the base class
+        return super(QueryWithSoftDelete, self).get(*args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        # the query.get method does not like it if there is a filter clause
+        # pre-loaded, so we need to implement it using a workaround
+        obj = self.with_deleted()._get(*args, **kwargs)
+        return obj if obj is not None and not obj.deleted else None
+
 
 class User(db.Model):
     __tablename__ = 'users'
