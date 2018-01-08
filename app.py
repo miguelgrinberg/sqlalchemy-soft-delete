@@ -11,12 +11,14 @@ migrate = Migrate(app, db)
 
 
 class QueryWithSoftDelete(BaseQuery):
+    _with_deleted = False
+    
     def __new__(cls, *args, **kwargs):
         obj = super(QueryWithSoftDelete, cls).__new__(cls)
-        with_deleted = kwargs.pop('_with_deleted', False)
+        obj._with_deleted = kwargs.pop('_with_deleted', False)
         if len(args) > 0:
             super(QueryWithSoftDelete, obj).__init__(*args, **kwargs)
-            return obj.filter_by(deleted=False) if not with_deleted else obj
+            return obj.filter_by(deleted=False) if not obj._with_deleted else obj
         return obj
 
     def __init__(self, *args, **kwargs):
@@ -34,7 +36,7 @@ class QueryWithSoftDelete(BaseQuery):
         # the query.get method does not like it if there is a filter clause
         # pre-loaded, so we need to implement it using a workaround
         obj = self.with_deleted()._get(*args, **kwargs)
-        return obj if obj is not None and not obj.deleted else None
+        return obj if obj is None or self._with_deleted or not obj.deleted else None
 
 
 class User(db.Model):
