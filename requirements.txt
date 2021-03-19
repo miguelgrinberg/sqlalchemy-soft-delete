@@ -8,7 +8,7 @@ Flask-SQLAlchemy==2.3.2
 httpie==1.0.3
 idna==2.6
 itsdangerous==0.24
-Jinja2==2.10
+Jinja2==2.11.3
 Mako==1.0.7
 MarkupSafe==1.0
 Pygments==2.2.0
