@@ -41,6 +41,10 @@ class QueryWithSoftDelete(BaseQuery):
         # pre-loaded, so we need to implement it using a workaround
         obj = self.with_deleted()._get(*args, **kwargs)
         return obj if obj is None or self._with_deleted or not obj.deleted else None
+    
+    def soft_delete(self):
+        for obj in self.all():
+            obj.deleted = True
 
 
 class User(db.Model):
@@ -93,8 +97,7 @@ def get_user(id):
 
 @app.route('/users/<id>', methods=['DELETE'])
 def delete_user(id):
-    user = User.query.get_or_404(id)
-    user.deleted = True
+    User.query.get_or_404(id).soft_delete()
     db.session.commit()
     return '', 204
 
