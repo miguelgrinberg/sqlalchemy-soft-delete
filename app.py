@@ -43,8 +43,10 @@ class QueryWithSoftDelete(BaseQuery):
         return obj if obj is None or self._with_deleted or not obj.deleted else None
     
     def soft_delete(self):
-        for obj in self.all():
+        objs = self.all()
+        for obj in objs:
             obj.deleted = True
+        return objs
 
 
 class User(db.Model):
@@ -97,9 +99,11 @@ def get_user(id):
 
 @app.route('/users/<id>', methods=['DELETE'])
 def delete_user(id):
-    User.query.get_or_404(id).soft_delete()
-    db.session.commit()
-    return '', 204
+    if User.query.filter(id=id).soft_delete():
+        db.session.commit()
+        return '', 204
+    else:
+        return '', 404
 
 
 @app.route('/users/<id>/messages', methods=['POST'])
