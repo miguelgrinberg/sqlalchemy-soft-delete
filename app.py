@@ -47,7 +47,7 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
-    deleted = db.Column(db.Boolean(), default=False)
+    deleted = db.Column(db.Boolean(), default=False, nullable=False)
 
     query_class = QueryWithSoftDelete
 
